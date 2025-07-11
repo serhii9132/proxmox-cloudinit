@@ -11,7 +11,6 @@ MEMORY=2048
 CORES=2
 
 VMSETTINGS_BASE="--net0 virtio,bridge=vmbr0 --ostype l26"
-VM_IP_CONFIG="--ipconfig0=ip=192.168.0.61/24,gw=192.168.0.1"
 
 download_image() {
     local full_image_path="${DOWNLOAD_DIR}/${IMAGENAME}"
@@ -37,7 +36,6 @@ configure_vm_disks_and_cloudinit() {
     fi
 
     echo "Configuring disks and Cloud-Init for VM ${VMID}..."
-    qm set "${VMID}" "${VM_IP_CONFIG}"
     qm set "${VMID}" --scsihw virtio-scsi-pci --scsi0 "${disk_path}"
     qm set ${VMID} --ide2 ${STORAGE}:cloudinit --agent 1
     qm set ${VMID} --cicustom "user=${STORAGE}:snippets/user-data.yaml"
