@@ -9,4 +9,4 @@
 login: root
 password: password
 ```
-- IP: 192.168.0.61 - (This IP is assigned from local network range)
+- VMs IPs: 192.168.0.61–63 (IPs are assigned from the local network range)
