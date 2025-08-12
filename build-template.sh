@@ -29,18 +29,58 @@ import_disk() {
     qm importdisk "${VMID}" "${full_image_path}" "${STORAGE}" --format qcow2
 }
 
-configure_vm_disks_and_cloudinit() {
+configure_disks() {
     local disk_path=$(qm config "${VMID}" | grep "unused0" | awk '{print $2}' | sed 's/,.*//')
     if [ -z "$disk_path" ]; then
         handle_error "Could not find path to imported disk."
     fi
 
-    echo "Configuring disks and Cloud-Init for VM ${VMID}..."
+    echo "Configuring disks for VM ${VMID}..."
     qm set "${VMID}" --scsihw virtio-scsi-pci --scsi0 "${disk_path}"
-    qm set ${VMID} --ide2 ${STORAGE}:cloudinit --agent 1
-    qm set ${VMID} --cicustom "user=${STORAGE}:snippets/user-data.yaml"
     qm set "${VMID}" --boot c --bootdisk scsi0
     qm set "${VMID}" --serial0 socket
+}
+
+configure_cloudinit() {
+    if [ -f .env ]; then
+        source .env
+    else
+        echo ".env file doesn't exists"
+        exit 1 
+    fi
+
+    local path_to_snippet="/var/lib/vz/snippets"
+    local file="user-data.yaml"
+
+    echo "Configuring Cloudinit for VM ${VMID}..."
+
+    cat <<-EOF >"${path_to_snippet}/${file}"
+#cloud-config
+hostname: debian
+manage_etc_hosts: true
+
+package_update: true
+package_upgrade: true
+packages:
+- qemu-guest-agent
+
+timezone: Europe/Kyiv
+
+chpasswd:
+  expire: false
+  users:
+  - {name: root, password: $HASH_ROOT_PASS}
+
+runcmd:
+- sed -i 's/[#]*PermitRootLogin prohibit-password/PermitRootLogin yes/g' /etc/ssh/sshd_config
+- sed -i 's/[#]*PasswordAuthentication no/PasswordAuthentication yes/g' /etc/ssh/sshd_config
+- systemctl reload ssh
+- systemctl enable qemu-guest-agent
+- systemctl start qemu-guest-agent
+EOF
+
+    qm set ${VMID} --ide2 ${STORAGE}:cloudinit --agent 1
+    qm set ${VMID} --cicustom "user=${STORAGE}:snippets/user-data.yaml"
 }
 
 create_template() {
@@ -57,7 +97,8 @@ main() {
     download_image
     create_vm
     import_disk
-    configure_vm_disks_and_cloudinit
+    configure_disks
+    configure_cloudinit
     create_template
     cleanup
 }
