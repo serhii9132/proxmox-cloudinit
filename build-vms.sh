@@ -2,7 +2,7 @@
 
 TEMPLATE_VMID=100
 BASE_VM_NAME="debian-vm"
-START_VMID=1001
+START_VMID=101
 
 START_IP_PREFIX="192.168.0."
 START_IP_HOST_PART=61
@@ -14,9 +14,20 @@ handle_error() {
     exit 1
 }
 
+get_free_vmid() {
+    local current_vmid=${START_VMID}
+    while qm status "${current_vmid}" &>/dev/null; do
+        ((current_vmid++))
+        if [ "${current_vmid}" -gt $((START_VMID + 10)) ]; then 
+            handle_error "Too many VMs exist, cannot find a free VMID starting from ${START_VMID}."
+        fi
+    done
+    echo "${current_vmid}"
+}
+
 deploy_vm() {
     local vm_number=$1
-    local current_vmid=$((START_VMID + vm_number - 1))
+    local current_vmid=$(get_free_vmid)
     local vm_name="${BASE_VM_NAME}-${current_vmid}"
 
     # Calculate the IP address for this VM.
